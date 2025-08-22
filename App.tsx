@@ -21,8 +21,8 @@ const App: React.FC = () => {
     const [factsForQuiz, setFactsForQuiz] = useState<string[]>([]);
     const [gameState, setGameState] = useState<GameState>('welcome');
     
-    // New state for pre-loading
-    const [preloadedContent, setPreloadedContent] = useState<PreloadedContent | null>(null);
+    // New state for pre-loading a batch of facts
+    const [preloadedQueue, setPreloadedQueue] = useState<PreloadedContent[]>([]);
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
 
     const handleSelectDifficulty = useCallback((level: DifficultyLevel) => {
@@ -34,15 +34,15 @@ const App: React.FC = () => {
         };
         setChatHistory([welcomeMessage]);
         setGameState('welcome');
-        // The useEffect will now trigger the initial preload for Fact #1
+        // The useEffect will now trigger the initial preload for the first 5 facts
     }, []);
 
     const advanceJourney = useCallback(async () => {
         if (isLoading || !difficultyLevel) return;
 
         // If content is ready, display it immediately for a fast experience
-        if (preloadedContent) {
-            const { factResponse, imageUrl } = preloadedContent;
+        if (preloadedQueue.length > 0) {
+            const { factResponse, imageUrl } = preloadedQueue[0];
             const newFactCount = factCount + 1;
             
             const factMessage: ChatMessage = {
@@ -56,7 +56,7 @@ const App: React.FC = () => {
             setFactCount(newFactCount);
             setFactsForQuiz(prev => [...prev, factResponse.fact]);
             setGameState('playing');
-            setPreloadedContent(null); // Consume the preloaded content
+            setPreloadedQueue(prev => prev.slice(1)); // Consume the first preloaded content
         } else {
             // Fallback: Content is not preloaded (still loading or failed).
             // Show loading state to user and fetch on demand.
@@ -97,30 +97,46 @@ const App: React.FC = () => {
                 setIsLoading(false);
             }
         }
-    }, [isLoading, difficultyLevel, factCount, factsForQuiz, preloadedContent]);
+    }, [isLoading, difficultyLevel, factCount, factsForQuiz, preloadedQueue]);
 
-    // Effect hook to handle all background pre-loading
+    // Effect hook to handle batch pre-loading of facts
     useEffect(() => {
-        const canPreload = difficultyLevel && !isPreloading && !preloadedContent;
-        const shouldPreload = canPreload && (gameState === 'welcome' || gameState === 'playing' || gameState === 'quiz_done');
+        // Conditions to trigger pre-loading a new batch of 5 facts
+        const shouldPreload = 
+            difficultyLevel && 
+            !isPreloading && 
+            preloadedQueue.length === 0 && // Only preload if the queue is empty
+            (gameState === 'welcome' || gameState === 'quiz_done');
 
         if (shouldPreload) {
-            const preload = async () => {
+            const PRELOAD_COUNT = 5;
+
+            const preloadBatch = async () => {
                 setIsPreloading(true);
+                const currentKnownFacts = [...factsForQuiz];
+                const newContentBatch: PreloadedContent[] = [];
+
                 try {
-                    const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
-                    const image = await generateCosmicImage(factResponse.imagePrompt);
-                    setPreloadedContent({ factResponse, imageUrl: image });
+                    for (let i = 0; i < PRELOAD_COUNT; i++) {
+                        const nextFactLevel = factCount + i + 1;
+                        const factResponse = await getCosmicFact(nextFactLevel, currentKnownFacts, difficultyLevel);
+                        // Add new fact to our temp list to ensure uniqueness within the batch
+                        currentKnownFacts.push(factResponse.fact);
+                        const imageUrl = await generateCosmicImage(factResponse.imagePrompt);
+                        newContentBatch.push({ factResponse, imageUrl });
+                    }
+                    setPreloadedQueue(newContentBatch);
                 } catch (error) {
-                    console.error("Failed to preload next fact:", error);
-                    setPreloadedContent(null); // Ensure fallback is triggered on error
+                    console.error("Failed to preload batch of facts:", error);
+                    setPreloadedQueue([]); // Clear queue on error to allow fallback
                 } finally {
                     setIsPreloading(false);
                 }
             };
-            preload();
+            preloadBatch();
         }
-    }, [difficultyLevel, gameState, factCount, isPreloading, preloadedContent, factsForQuiz]);
+    }, [difficultyLevel, gameState, factCount, isPreloading, preloadedQueue.length, factsForQuiz]);
+
 
     const handleTakeQuiz = useCallback(async () => {
         if (isLoading || !difficultyLevel) return;
@@ -159,6 +175,7 @@ const App: React.FC = () => {
     
     const handleQuizComplete = useCallback(() => {
         setGameState('quiz_done');
+        // The useEffect will trigger preloading for the next batch of facts
     }, []);
 
     const handleEndMission = useCallback(() => {
