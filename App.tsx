@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { ChatWindow } from './components/ChatWindow';
 import { GameControls } from './components/GameControls';
 import { DifficultySelector } from './components/DifficultySelector';
-import { getCosmicFact, generateCosmicImage, generateCosmicQuiz } from './services/geminiService';
+import { getCosmicFact, generateCosmicQuiz } from './services/geminiService';
 import { QUIZ_INTERVAL, TOTAL_FACTS_PER_LEVEL } from './constants';
 import { MessageSender } from './types';
 import type { ChatMessage, QuizQuestion, DifficultyLevel, GameState, LevelContentBlock, FactBlock, QuizBlock, FactResponse } from './types';
@@ -27,11 +27,8 @@ const App: React.FC = () => {
                 const factResponse = await getCosmicFact(i + 1, knownFactsForUniqueness, level);
                 knownFactsForUniqueness.push(factResponse.fact);
                 factsForNextQuiz.push(factResponse.fact);
-                
-                // Image generation can be slow, so it's good it's happening in the background
-                const imageUrl = await generateCosmicImage(factResponse.imagePrompt);
 
-                const newFactBlock: FactBlock = { type: 'fact', factResponse, imageUrl };
+                const newFactBlock: FactBlock = { type: 'fact', factResponse };
                 setPreloadedLevelContent(prev => [...prev, newFactBlock]);
 
                 if ((i + 1) % QUIZ_INTERVAL === 0 && factsForNextQuiz.length > 0) {
@@ -85,7 +82,6 @@ const App: React.FC = () => {
                 id: `ai-fact-${Date.now()}`,
                 sender: MessageSender.AI,
                 text: `📚 **Topic #${newFactDisplayCount}: ${currentContent.factResponse.fact}**\n\n${currentContent.factResponse.explanation}`,
-                imageUrl: currentContent.imageUrl
             };
             setChatHistory(prev => [...prev, factMessage]);
             setFactDisplayCount(newFactDisplayCount);

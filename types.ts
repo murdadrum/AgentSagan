@@ -22,7 +22,6 @@ export interface ChatMessage {
   id: string;
   sender: MessageSender;
   text?: string;
-  imageUrl?: string;
   quizData?: QuizData;
   isLoading?: boolean;
 }
@@ -31,13 +30,11 @@ export interface ChatMessage {
 export interface FactResponse {
     fact: string;
     explanation: string;
-    imagePrompt: string;
 }
 
 export interface FactBlock {
     type: 'fact';
     factResponse: FactResponse;
-    imageUrl: string;
 }
 
 export interface QuizBlock {

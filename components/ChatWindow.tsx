@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import { MessageSender } from '../types';
 import type { ChatMessage } from '../types';
@@ -60,11 +61,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onQuizComplete
     const messageBody = (
         <div className={bubbleClass}>
             {msg.text && <p className="whitespace-pre-wrap text-lg">{msg.text}</p>}
-            {msg.imageUrl && (
-                <div className="mt-4">
-                    <img src={msg.imageUrl} alt="Cosmic illustration" className="rounded-lg shadow-lg" />
-                </div>
-            )}
             {msg.quizData && <Quiz quizData={msg.quizData} onComplete={onQuizComplete} />}
         </div>
     );
