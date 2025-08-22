@@ -26,20 +26,20 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ onSelect
             <div className="space-y-4">
                 <LevelButton
                     level={1}
-                    label="Level 1: Young Explorer"
-                    description="Ages 6-10. Simple facts, fun analogies, and an exciting adventure for budding astronauts!"
+                    label="Level 1: Cadet"
+                    description="Embark on your first mission! Simple facts, fun analogies, and an exciting adventure for new recruits."
                     onClick={() => onSelectDifficulty(1)}
                 />
                 <LevelButton
                     level={2}
-                    label="Level 2: Star Cadet"
-                    description="Ages 11-18. More detailed explanations for curious minds ready to dive deeper into the cosmos."
+                    label="Level 2: Captain"
+                    description="Take command of your learning with more detailed explanations, perfect for curious minds ready to dive deeper."
                     onClick={() => onSelectDifficulty(2)}
                 />
                 <LevelButton
                     level={3}
-                    label="Level 3: Astrophysicist"
-                    description="Ages 20+. A challenging journey with in-depth, technical information for seasoned space enthusiasts."
+                    label="Level 3: Commander"
+                    description="Master the universe with a challenging journey featuring in-depth, technical information for seasoned space experts."
                     onClick={() => onSelectDifficulty(3)}
                 />
             </div>
