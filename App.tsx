@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { ChatWindow } from './components/ChatWindow';
 import { GameControls } from './components/GameControls';
@@ -62,7 +63,7 @@ const App: React.FC = () => {
         const welcomeMessage: ChatMessage = {
             id: `ai-start-${Date.now()}`,
             sender: MessageSender.AI,
-            text: "Greetings, and welcome to CosmoQuest. I am Commander Aime, your guide for today's lesson. I am currently preparing the materials for our session. The 'Start Lesson' button will become available momentarily.",
+            text: "Greetings, cadet, and welcome aboard the starship CosmoQuest. I am Commander Sagan, your guide for today's mission. I am currently preparing the briefing materials. The 'Start Mission' button will become available momentarily.",
         };
         setChatHistory([welcomeMessage]);
         setGameState('welcome');
@@ -109,7 +110,7 @@ const App: React.FC = () => {
             const levelCompleteMessage: ChatMessage = {
                 id: `ai-level-complete-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: "Excellent work! You have completed all topics for this lesson. You may now end the session to return to the main menu and select a new topic."
+                text: "Excellent work, cadet! You have successfully completed all objectives for this mission. You may now end the session to return to the main menu and select a new assignment."
             };
             setChatHistory(prev => [...prev, levelCompleteMessage]);
         } else {
@@ -123,7 +124,7 @@ const App: React.FC = () => {
             const gameOverMessage: ChatMessage = {
                 id: `ai-gameover-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: "This concludes our session. It was a pleasure exploring the cosmos with you. Return any time to continue your studies. Commander Aime, signing off."
+                text: "This concludes our mission. It was a pleasure exploring the cosmos with you, cadet. Return any time to continue your training. Commander Sagan, signing off."
             };
             setChatHistory(prev => [...prev, gameOverMessage]);
         }
@@ -150,7 +151,7 @@ const App: React.FC = () => {
     return (
         <div className="h-screen w-screen flex flex-col font-sans bg-transparent">
             <header className="bg-gray-800/75 backdrop-blur-sm text-white p-4 text-center shadow-md border-b border-gray-700/50">
-                <h1 className="text-3xl font-bold tracking-wider">CosmoQuest with Commander Aime</h1>
+                <h1 className="text-3xl font-bold tracking-wider">Commander Sagan's CosmoQuest</h1>
             </header>
             <ChatWindow messages={chatHistory} onQuizComplete={handleQuizComplete} />
             <GameControls

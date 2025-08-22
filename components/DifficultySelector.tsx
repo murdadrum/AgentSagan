@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { DifficultyLevel } from '../types';
 
@@ -21,8 +22,8 @@ export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ onSelect
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center font-sans text-white p-4">
         <div className="max-w-2xl w-full text-center bg-black/50 backdrop-blur-md p-8 rounded-xl border border-gray-700">
-            <h1 className="text-5xl font-bold tracking-wider mb-4">Welcome to CosmoQuest</h1>
-            <p className="text-xl text-gray-300 mb-8">I am Commander Aime, your guide on this astronomical journey. Please select a topic focus for our session.</p>
+            <h1 className="text-5xl font-bold tracking-wider mb-4">Welcome to Commander Sagan's CosmoQuest</h1>
+            <p className="text-xl text-gray-300 mb-8">I am Commander Sagan, your guide on this astronomical mission. Please select a mission focus.</p>
             <div className="space-y-4">
                 <LevelButton
                     level={1}

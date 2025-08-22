@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GameState } from '../types';
 
@@ -35,7 +36,7 @@ export const GameControls: React.FC<GameControlsProps> = ({ gameState, currentFa
 
         switch (gameState) {
             case 'welcome':
-                buttonContent = 'Start Lesson';
+                buttonContent = 'Start Mission';
                 buttonAction = onStart;
                 break;
             case 'playing':
@@ -44,12 +45,12 @@ export const GameControls: React.FC<GameControlsProps> = ({ gameState, currentFa
                     buttonAction = onTakeQuiz;
                     buttonClass = 'bg-yellow-500 hover:bg-yellow-400 text-gray-900';
                 } else {
-                    buttonContent = 'Next Topic';
+                    buttonContent = 'Next Objective';
                     buttonAction = onNextFact;
                 }
                 break;
             case 'quiz_done':
-                 buttonContent = 'Continue Lesson';
+                 buttonContent = 'Continue Mission';
                  buttonAction = onContinue;
                  break;
             case 'quiz':
@@ -81,7 +82,7 @@ export const GameControls: React.FC<GameControlsProps> = ({ gameState, currentFa
                 {showProgress && (
                     <div className="w-full max-w-sm">
                         <div className="flex justify-between mb-1">
-                             <span className="text-base font-medium text-indigo-300">Lesson Progress</span>
+                             <span className="text-base font-medium text-indigo-300">Mission Progress</span>
                              <span className="text-sm font-medium text-indigo-300">{currentFactNumber} / {totalFacts}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2.5">
@@ -100,7 +101,7 @@ export const GameControls: React.FC<GameControlsProps> = ({ gameState, currentFa
                 {renderCentralContent()}
                  {gameState !== 'session_over' && gameState !== 'level_complete' && (
                      <ActionButton onClick={onEndMission} disabled={disabled && gameState !== 'welcome'} className="bg-red-700 hover:bg-red-600 text-white !w-auto absolute right-4">
-                        End Session
+                        End Mission
                     </ActionButton>
                 )}
                  {(gameState === 'level_complete' || gameState === 'session_over') && (
