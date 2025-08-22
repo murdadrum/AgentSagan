@@ -1,10 +1,10 @@
 import React from 'react';
 import { GameState } from '../types';
-import { QUIZ_INTERVAL } from '../constants';
 
 interface GameControlsProps {
     gameState: GameState;
-    factCount: number;
+    currentFactNumber: number;
+    totalFacts: number;
     disabled: boolean;
     onStart: () => void;
     onNextFact: () => void;
@@ -23,35 +23,60 @@ const ActionButton: React.FC<{ onClick: () => void; disabled: boolean; children:
     </button>
 );
 
-export const GameControls: React.FC<GameControlsProps> = ({ gameState, factCount, disabled, onStart, onNextFact, onTakeQuiz, onContinue, onEndMission }) => {
+export const GameControls: React.FC<GameControlsProps> = ({ gameState, currentFactNumber, totalFacts, disabled, onStart, onNextFact, onTakeQuiz, onContinue, onEndMission }) => {
 
-    const renderCentralButton = () => {
+    const renderCentralContent = () => {
+        let button = null;
+        let showProgress = false;
+
         switch (gameState) {
             case 'welcome':
-                return <ActionButton onClick={onStart} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Start Journey</ActionButton>;
+                button = <ActionButton onClick={onStart} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Start Lesson</ActionButton>;
+                break;
             case 'playing':
-                if (factCount > 0 && factCount % QUIZ_INTERVAL === 0) {
-                    return <ActionButton onClick={onTakeQuiz} disabled={disabled} className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 disabled:bg-gray-600">Take Quiz!</ActionButton>;
+                 showProgress = true;
+                if (currentFactNumber > 0 && currentFactNumber % 5 === 0) {
+                    button = <ActionButton onClick={onTakeQuiz} disabled={disabled} className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 disabled:bg-gray-600">Take Quiz</ActionButton>;
+                } else {
+                    button = <ActionButton onClick={onNextFact} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Next Topic</ActionButton>;
                 }
-                return <ActionButton onClick={onNextFact} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Next Fact</ActionButton>;
+                break;
             case 'quiz_done':
-                 return <ActionButton onClick={onContinue} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Continue Journey</ActionButton>;
+                 button = <ActionButton onClick={onContinue} disabled={disabled} className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-gray-600">Continue Lesson</ActionButton>;
+                 showProgress = true;
+                 break;
             case 'quiz':
-            case 'game_over':
+            case 'level_complete':
+            case 'session_over':
             default:
-                return null;
+                button = null;
+                break;
         }
+        
+        return (
+             <div className="flex-grow flex flex-col items-center justify-center space-y-2">
+                {showProgress && (
+                    <div className="text-indigo-300 font-medium">
+                        Topic {currentFactNumber} / {totalFacts}
+                    </div>
+                )}
+                {button}
+            </div>
+        );
     }
 
     return (
-        <div className="bg-gray-800/75 backdrop-blur-sm p-4 border-t border-gray-700/50">
+        <div className="bg-gray-800/75 backdrop-blur-sm p-4 border-t border-gray-700/50 min-h-[90px]">
             <div className="flex items-center justify-center space-x-4 max-w-4xl mx-auto">
-                <div className="flex-grow flex justify-center">
-                    {renderCentralButton()}
-                </div>
-                {gameState !== 'game_over' && (
+                {renderCentralContent()}
+                {gameState !== 'session_over' && gameState !== 'level_complete' && (
                      <ActionButton onClick={onEndMission} disabled={disabled} className="bg-red-700 hover:bg-red-600 text-white !w-auto absolute right-4 sm:static">
-                        End Mission
+                        End Session
+                    </ActionButton>
+                )}
+                 {(gameState === 'level_complete' || gameState === 'session_over') && (
+                     <ActionButton onClick={onEndMission} disabled={false} className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                        Return to Menu
                     </ActionButton>
                 )}
             </div>

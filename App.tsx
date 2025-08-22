@@ -3,210 +3,207 @@ import { ChatWindow } from './components/ChatWindow';
 import { GameControls } from './components/GameControls';
 import { DifficultySelector } from './components/DifficultySelector';
 import { getCosmicFact, generateCosmicImage, generateCosmicQuiz } from './services/geminiService';
-import { QUIZ_INTERVAL } from './constants';
+import { QUIZ_INTERVAL, TOTAL_FACTS_PER_LEVEL } from './constants';
 import { MessageSender } from './types';
-import type { ChatMessage, QuizQuestion, DifficultyLevel, GameState } from './types';
+import type { ChatMessage, QuizQuestion, DifficultyLevel, GameState, LevelContentBlock, FactResponse } from './types';
 
-// Define a type for the preloaded content for better type safety
-type PreloadedContent = {
-    factResponse: Awaited<ReturnType<typeof getCosmicFact>>;
-    imageUrl: string;
+// Define a type for the preloading progress state
+type PreloadProgress = {
+    loaded: number;
+    total: number;
+    message: string;
 };
 
 const App: React.FC = () => {
     const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [factCount, setFactCount] = useState<number>(0);
-    const [factsForQuiz, setFactsForQuiz] = useState<string[]>([]);
     const [gameState, setGameState] = useState<GameState>('welcome');
     
-    // New state for pre-loading a batch of facts
-    const [preloadedQueue, setPreloadedQueue] = useState<PreloadedContent[]>([]);
-    const [isPreloading, setIsPreloading] = useState<boolean>(false);
+    // State for the fully preloaded level
+    const [preloadedLevelContent, setPreloadedLevelContent] = useState<LevelContentBlock[]>([]);
+    const [contentIndex, setContentIndex] = useState<number>(0);
+    const [factDisplayCount, setFactDisplayCount] = useState<number>(0);
+    
+    const [isPreloadingLevel, setIsPreloadingLevel] = useState<boolean>(false);
+    const [preloadProgress, setPreloadProgress] = useState<PreloadProgress>({ loaded: 0, total: 1, message: '' });
 
-    const handleSelectDifficulty = useCallback((level: DifficultyLevel) => {
-        setDifficultyLevel(level);
-        const welcomeMessage: ChatMessage = {
-            id: `ai-start-${Date.now()}`,
-            sender: MessageSender.AI,
-            text: "Hello, Space Explorer! I'm Dr. Aime Sagan, and I'm SO excited you're here! Together, we're going on an amazing adventure through space. I'll share some super cool secrets of the universe with you. After we learn five facts, I'll give you a fun quiz to test your astronaut skills! Are you ready for blast off? Click the 'Start Journey' button below to begin!",
-        };
-        setChatHistory([welcomeMessage]);
-        setGameState('welcome');
-        // The useEffect will now trigger the initial preload for the first 5 facts
-    }, []);
-
-    const advanceJourney = useCallback(async () => {
-        if (isLoading || !difficultyLevel) return;
-
-        // If content is ready, display it immediately for a fast experience
-        if (preloadedQueue.length > 0) {
-            const { factResponse, imageUrl } = preloadedQueue[0];
-            const newFactCount = factCount + 1;
-            
-            const factMessage: ChatMessage = {
-                id: `ai-fact-${Date.now()}`,
-                sender: MessageSender.AI,
-                text: `🚀 **Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
-                imageUrl: imageUrl
-            };
-
-            setChatHistory(prev => [...prev, factMessage]);
-            setFactCount(newFactCount);
-            setFactsForQuiz(prev => [...prev, factResponse.fact]);
-            setGameState('playing');
-            setPreloadedQueue(prev => prev.slice(1)); // Consume the first preloaded content
-        } else {
-            // Fallback: Content is not preloaded (still loading or failed).
-            // Show loading state to user and fetch on demand.
-            setIsLoading(true);
-            const loadingMessage: ChatMessage = {
-                id: `loading-${Date.now()}`,
-                sender: MessageSender.AI,
-                isLoading: true,
-            };
-            setChatHistory(prev => [...prev, loadingMessage]);
-
-            try {
-                const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
-                const newFactCount = factCount + 1;
-                const image = await generateCosmicImage(factResponse.imagePrompt);
-
-                const factMessage: ChatMessage = {
-                    id: `ai-fact-${Date.now()}`,
-                    sender: MessageSender.AI,
-                    text: `🚀 **Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
-                    imageUrl: image
-                };
-                setChatHistory(prev => prev.filter(m => !m.isLoading).concat(factMessage));
-                
-                setFactCount(newFactCount);
-                setFactsForQuiz(prev => [...prev, factResponse.fact]);
-                setGameState('playing');
-            } catch (error) {
-                console.error(error);
-                const errorMessage: ChatMessage = {
-                    id: `ai-error-${Date.now()}`,
-                    sender: MessageSender.AI,
-                    text: "Whoa, a solar flare must be messing with our signal! My message got lost in some space static. Please try again.",
-                };
-                setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
-                setGameState('playing');
-            } finally {
-                setIsLoading(false);
-            }
-        }
-    }, [isLoading, difficultyLevel, factCount, factsForQuiz, preloadedQueue]);
-
-    // Effect hook to handle batch pre-loading of facts
-    useEffect(() => {
-        // Conditions to trigger pre-loading a new batch of 5 facts
-        const shouldPreload = 
-            difficultyLevel && 
-            !isPreloading && 
-            preloadedQueue.length === 0 && // Only preload if the queue is empty
-            (gameState === 'welcome' || gameState === 'quiz_done');
-
-        if (shouldPreload) {
-            const PRELOAD_COUNT = 5;
-
-            const preloadBatch = async () => {
-                setIsPreloading(true);
-                const currentKnownFacts = [...factsForQuiz];
-                const newContentBatch: PreloadedContent[] = [];
-
-                try {
-                    for (let i = 0; i < PRELOAD_COUNT; i++) {
-                        const nextFactLevel = factCount + i + 1;
-                        const factResponse = await getCosmicFact(nextFactLevel, currentKnownFacts, difficultyLevel);
-                        // Add new fact to our temp list to ensure uniqueness within the batch
-                        currentKnownFacts.push(factResponse.fact);
-                        const imageUrl = await generateCosmicImage(factResponse.imagePrompt);
-                        newContentBatch.push({ factResponse, imageUrl });
-                    }
-                    setPreloadedQueue(newContentBatch);
-                } catch (error) {
-                    console.error("Failed to preload batch of facts:", error);
-                    setPreloadedQueue([]); // Clear queue on error to allow fallback
-                } finally {
-                    setIsPreloading(false);
-                }
-            };
-            preloadBatch();
-        }
-    }, [difficultyLevel, gameState, factCount, isPreloading, preloadedQueue.length, factsForQuiz]);
-
-
-    const handleTakeQuiz = useCallback(async () => {
-        if (isLoading || !difficultyLevel) return;
-
-        setIsLoading(true);
-        setGameState('quiz');
-        const quizLoadingMessage: ChatMessage = {
-            id: `loading-quiz-${Date.now()}`,
-            sender: MessageSender.AI,
-            isLoading: true,
-        };
-        setChatHistory(prev => [...prev, quizLoadingMessage]);
+    const preloadFullLevel = useCallback(async (level: DifficultyLevel) => {
+        setIsPreloadingLevel(true);
+        setChatHistory([]); // Clear chat for new level
+        setContentIndex(0);
+        setFactDisplayCount(0);
 
         try {
-            const quizQuestions: QuizQuestion[] = await generateCosmicQuiz(factsForQuiz, difficultyLevel);
-            const quizMessage: ChatMessage = {
-                id: `ai-quiz-${Date.now()}`,
+            const allFactsForLevel: FactResponse[] = [];
+            const knownFactsForUniqueness: string[] = [];
+            const totalPreloadSteps = TOTAL_FACTS_PER_LEVEL + TOTAL_FACTS_PER_LEVEL + (TOTAL_FACTS_PER_LEVEL / QUIZ_INTERVAL);
+            let currentStep = 0;
+
+            // 1. Generate all 15 facts sequentially to ensure uniqueness
+            for (let i = 0; i < TOTAL_FACTS_PER_LEVEL; i++) {
+                currentStep++;
+                setPreloadProgress({ loaded: currentStep, total: totalPreloadSteps, message: `Generating topic ${i + 1}/${TOTAL_FACTS_PER_LEVEL}...` });
+                const factResponse = await getCosmicFact(i + 1, knownFactsForUniqueness, level);
+                allFactsForLevel.push(factResponse);
+                knownFactsForUniqueness.push(factResponse.fact);
+            }
+
+            // 2. Generate all 15 images in parallel for speed
+            const imagePromises = allFactsForLevel.map((fact, i) => {
+                 return generateCosmicImage(fact.imagePrompt).then(image => {
+                    currentStep++;
+                    setPreloadProgress({ loaded: currentStep, total: totalPreloadSteps, message: `Creating illustration ${i + 1}/${TOTAL_FACTS_PER_LEVEL}...` });
+                    return image;
+                 });
+            });
+            const allImagesForLevel = await Promise.all(imagePromises);
+
+            // 3. Generate all 3 quizzes
+            const allQuizzesForLevel: QuizQuestion[][] = [];
+            for (let i = 0; i < TOTAL_FACTS_PER_LEVEL / QUIZ_INTERVAL; i++) {
+                currentStep++;
+                setPreloadProgress({ loaded: currentStep, total: totalPreloadSteps, message: `Preparing quiz ${i + 1}/${TOTAL_FACTS_PER_LEVEL / QUIZ_INTERVAL}...` });
+                const factSlice = allFactsForLevel.slice(i * QUIZ_INTERVAL, (i + 1) * QUIZ_INTERVAL).map(f => f.fact);
+                const quiz = await generateCosmicQuiz(factSlice, level);
+                allQuizzesForLevel.push(quiz);
+            }
+
+            // 4. Assemble the final content queue
+            const finalContentQueue: LevelContentBlock[] = [];
+            let quizIndex = 0;
+            for (let i = 0; i < TOTAL_FACTS_PER_LEVEL; i++) {
+                finalContentQueue.push({ type: 'fact', factResponse: allFactsForLevel[i], imageUrl: allImagesForLevel[i] });
+                if ((i + 1) % QUIZ_INTERVAL === 0) {
+                    finalContentQueue.push({ type: 'quiz', quizData: { questions: allQuizzesForLevel[quizIndex] } });
+                    quizIndex++;
+                }
+            }
+            
+            setPreloadedLevelContent(finalContentQueue);
+
+            const welcomeMessage: ChatMessage = {
+                id: `ai-start-${Date.now()}`,
                 sender: MessageSender.AI,
-                quizData: { questions: quizQuestions }
+                text: "Greetings, and welcome to CosmoQuest. I am Commander Aime, your guide for today's lesson. All materials for our session have been pre-loaded. We will cover 15 topics, with a short quiz after every five. To begin, please press the 'Start Lesson' button below.",
             };
-            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(quizMessage));
-            setFactsForQuiz([]);
+            setChatHistory([welcomeMessage]);
+            setGameState('welcome');
+
         } catch (error) {
-            console.error(error);
+             console.error("Failed to preload level:", error);
              const errorMessage: ChatMessage = {
                 id: `ai-error-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: "Oh no! I couldn't beam down the quiz questions. A pesky asteroid must have blocked the signal. Let's just continue our journey for now.",
+                text: "A critical error occurred while preparing the lesson materials. Please check your connection and API key, then refresh to try again.",
             };
-            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
-            setGameState('quiz_done'); // Skip quiz on error
+            setChatHistory([errorMessage]);
+            setGameState('session_over'); // A fatal error
         } finally {
-            setIsLoading(false);
+            setIsPreloadingLevel(false);
         }
-    }, [isLoading, difficultyLevel, factsForQuiz]);
-    
-    const handleQuizComplete = useCallback(() => {
-        setGameState('quiz_done');
-        // The useEffect will trigger preloading for the next batch of facts
     }, []);
 
-    const handleEndMission = useCallback(() => {
-        setGameState('game_over');
-        const gameOverMessage: ChatMessage = {
-            id: `ai-gameover-${Date.now()}`,
-            sender: MessageSender.AI,
-            text: "I hear you, mission control! Our space adventure is over for now. It was awesome exploring the stars with you! Come back soon for another trip through the cosmos. Dr. Sagan, over and out!"
-        };
-        setChatHistory(prev => [...prev, gameOverMessage]);
+    const handleSelectDifficulty = useCallback((level: DifficultyLevel) => {
+        setDifficultyLevel(level);
+        setGameState('preloading_level');
+        preloadFullLevel(level);
+    }, [preloadFullLevel]);
+
+    const advanceJourney = useCallback(() => {
+        if (contentIndex >= preloadedLevelContent.length) {
+             // Should be handled by level_complete state, but as a safeguard
+            handleEndMission(true);
+            return;
+        }
+
+        const currentContent = preloadedLevelContent[contentIndex];
+        let newFactDisplayCount = factDisplayCount;
+        
+        if (currentContent.type === 'fact') {
+            newFactDisplayCount++;
+            const factMessage: ChatMessage = {
+                id: `ai-fact-${Date.now()}`,
+                sender: MessageSender.AI,
+                text: `📚 **Topic #${newFactDisplayCount}: ${currentContent.factResponse.fact}**\n\n${currentContent.factResponse.explanation}`,
+                imageUrl: currentContent.imageUrl
+            };
+            setChatHistory(prev => [...prev, factMessage]);
+            setFactDisplayCount(newFactDisplayCount);
+            setGameState('playing');
+        } else if (currentContent.type === 'quiz') {
+            const quizMessage: ChatMessage = {
+                id: `ai-quiz-${Date.now()}`,
+                sender: MessageSender.AI,
+                quizData: currentContent.quizData
+            };
+            setChatHistory(prev => [...prev, quizMessage]);
+            setGameState('quiz');
+        }
+        
+        setContentIndex(prev => prev + 1);
+
+    }, [contentIndex, preloadedLevelContent, factDisplayCount]);
+
+    const handleQuizComplete = useCallback(() => {
+        if (factDisplayCount === TOTAL_FACTS_PER_LEVEL) {
+            setGameState('level_complete');
+            const levelCompleteMessage: ChatMessage = {
+                id: `ai-level-complete-${Date.now()}`,
+                sender: MessageSender.AI,
+                text: "Excellent work! You have completed all topics for this lesson. You may now end the session to return to the main menu and select a new topic."
+            };
+            setChatHistory(prev => [...prev, levelCompleteMessage]);
+        } else {
+            setGameState('quiz_done');
+        }
+    }, [factDisplayCount]);
+
+    const handleEndMission = useCallback((isLevelComplete: boolean = false) => {
+        setGameState('session_over');
+        if (!isLevelComplete) {
+            const gameOverMessage: ChatMessage = {
+                id: `ai-gameover-${Date.now()}`,
+                sender: MessageSender.AI,
+                text: "This concludes our session. It was a pleasure exploring the cosmos with you. Return any time to continue your studies. Commander Aime, signing off."
+            };
+            setChatHistory(prev => [...prev, gameOverMessage]);
+        }
+        // Reset to initial state after a delay to allow user to read message
+        setTimeout(() => {
+             setDifficultyLevel(null);
+             setChatHistory([]);
+             setGameState('welcome');
+             setPreloadedLevelContent([]);
+             setContentIndex(0);
+             setFactDisplayCount(0);
+        }, 4000);
     }, []);
 
     if (!difficultyLevel) {
-        return <DifficultySelector onSelectDifficulty={handleSelectDifficulty} />;
+        return <DifficultySelector onSelectDifficulty={handleSelectDifficulty} isLoading={false} progress={{loaded:0, total:1, message:''}} />;
+    }
+    
+    if (gameState === 'preloading_level') {
+         return <DifficultySelector onSelectDifficulty={() => {}} isLoading={isPreloadingLevel} progress={preloadProgress} />;
     }
 
     return (
         <div className="h-screen w-screen flex flex-col font-sans bg-transparent">
             <header className="bg-gray-800/75 backdrop-blur-sm text-white p-4 text-center shadow-md border-b border-gray-700/50">
-                <h1 className="text-3xl font-bold tracking-wider">Cosmic Voyage with Dr. Aime Sagan</h1>
+                <h1 className="text-3xl font-bold tracking-wider">CosmoQuest with Commander Aime</h1>
             </header>
             <ChatWindow messages={chatHistory} onQuizComplete={handleQuizComplete} />
             <GameControls
                 gameState={gameState}
-                factCount={factCount}
+                currentFactNumber={factDisplayCount}
+                totalFacts={TOTAL_FACTS_PER_LEVEL}
                 disabled={isLoading}
                 onStart={advanceJourney}
                 onNextFact={advanceJourney}
-                onTakeQuiz={handleTakeQuiz}
+                onTakeQuiz={advanceJourney} // Quiz is now part of the main journey flow
                 onContinue={advanceJourney}
-                onEndMission={handleEndMission}
+                onEndMission={() => handleEndMission(false)}
             />
         </div>
     );

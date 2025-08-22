@@ -1,5 +1,5 @@
 {
-  "name": "Dr. Sagan's Cosmic Voyage",
-  "description": "An educational and interactive game about the cosmos hosted by a virtual PhD Astrophysicist. Learn facts, see stunning AI-generated visuals, and test your knowledge with quizzes.",
+  "name": "CosmoQuest",
+  "description": "An educational application for high school astronomy students. Explore the cosmos with your guide, Commander Aime, through a series of facts and quizzes designed to deepen your understanding of the universe.",
   "requestFramePermissions": []
 }

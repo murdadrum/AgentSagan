@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { QuizQuestion, DifficultyLevel } from '../types';
 
@@ -27,24 +28,26 @@ const factSchema = {
 };
 
 const getDifficultyConfig = (difficulty: DifficultyLevel) => {
+    const systemInstruction = "You are Commander Aime, a knowledgeable and amicable guide for a high school astronomy class. Your tone is professional, scholarly, and confident. You explain complex topics clearly and accurately, fostering curiosity and a deeper understanding of astrophysics. Your goal is to educate and engage students with fascinating, well-explained cosmic facts.";
+
     switch (difficulty) {
         case 1:
             return {
-                audience: "a child aged 6-10",
-                systemInstruction: "You are Dr. Aime Sagan, a super friendly and fun astrophysicist hosting a space game for kids aged 6-10. Your tone is extremely enthusiastic, simple, and exciting. Use easy-to-understand words, short sentences, and fun analogies. Avoid complex jargon. Make learning about space feel like an awesome adventure.",
-                explanationDetail: "using simple language and fun analogies suitable for a 6-10 year old.",
+                audience: "high school students beginning their study of astronomy",
+                systemInstruction,
+                explanationDetail: "focusing on core principles and definitions, ensuring clarity and building a strong foundation.",
             };
         case 2:
             return {
-                audience: "a teenager aged 11-18",
-                systemInstruction: "You are Dr. Aime Sagan, an engaging and cool astrophysicist hosting a space game for teenagers aged 11-18. Your tone is informative but also exciting and relatable. You can introduce more technical terms but should always explain them clearly. Assume a basic understanding of science but aim to expand on it.",
-                explanationDetail: "that is detailed and engaging for a teenager aged 11-18. Explain any technical terms you use.",
+                audience: "high school students with a grasp of basic astronomy",
+                systemInstruction,
+                explanationDetail: "delving into more specific phenomena and processes, such as stellar evolution or planetary science, with greater detail.",
             };
         case 3:
             return {
-                audience: "an adult (age 20+)",
-                systemInstruction: "You are Dr. Aime Sagan, a knowledgeable and enthusiastic astrophysicist hosting a space game for adults. Your tone is that of an expert speaking to a curious and intelligent peer. You can use precise, technical terminology, but should still prioritize clarity and engaging explanations. Your passion for the subject should be evident.",
-                explanationDetail: "that is in-depth, technically accurate, and detailed, suitable for an adult with a keen interest in astrophysics.",
+                audience: "advanced high school students ready for a challenge",
+                systemInstruction,
+                explanationDetail: "exploring complex, theoretical, or cutting-edge topics in astrophysics, such as black holes, dark matter, or the origins of the universe, with in-depth analysis.",
             };
     }
 };
@@ -81,9 +84,10 @@ export const getCosmicFact = async (factLevel: number, previousFacts: string[], 
 
 export const generateCosmicImage = async (prompt: string): Promise<string> => {
     try {
+        const optimizedPrompt = `${prompt}. Optimize for web display with fast load times, maintaining visual clarity.`;
         const response = await ai.models.generateImages({
             model: imageGenerationModel,
-            prompt: prompt,
+            prompt: optimizedPrompt,
             config: {
                 numberOfImages: 1,
                 outputMimeType: 'image/jpeg',
