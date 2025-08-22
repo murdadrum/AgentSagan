@@ -1,39 +1,33 @@
-
 import React, { useState, useCallback } from 'react';
 import { ChatWindow } from './components/ChatWindow';
-import { InputBar } from './components/InputBar';
+import { GameControls } from './components/GameControls';
+import { DifficultySelector } from './components/DifficultySelector';
 import { getCosmicFact, generateCosmicImage, generateCosmicQuiz } from './services/geminiService';
-import { TERMINATION_PHRASE, INITIAL_MESSAGE, QUIZ_INTERVAL } from './constants';
+import { QUIZ_INTERVAL } from './constants';
 import { MessageSender } from './types';
-import type { ChatMessage, QuizQuestion } from './types';
+import type { ChatMessage, QuizQuestion, DifficultyLevel, GameState } from './types';
 
 const App: React.FC = () => {
-    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
+    const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel | null>(null);
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [factCount, setFactCount] = useState<number>(0);
     const [factsForQuiz, setFactsForQuiz] = useState<string[]>([]);
-    const [isGameOver, setIsGameOver] = useState<boolean>(false);
+    const [gameState, setGameState] = useState<GameState>('welcome');
 
-    const handleUserInput = useCallback(async (message: string) => {
-        if (isLoading || isGameOver) return;
-
-        const userMessage: ChatMessage = {
-            id: `user-${Date.now()}`,
-            sender: MessageSender.USER,
-            text: message,
+    const handleSelectDifficulty = useCallback((level: DifficultyLevel) => {
+        setDifficultyLevel(level);
+        const welcomeMessage: ChatMessage = {
+            id: `ai-start-${Date.now()}`,
+            sender: MessageSender.AI,
+            text: "Hello, Space Explorer! I'm Dr. Aime Sagan, and I'm SO excited you're here! Together, we're going on an amazing adventure through space. I'll share some super cool secrets of the universe with you. After we learn five facts, I'll give you a fun quiz to test your astronaut skills! Are you ready for blast off? Click the 'Start Journey' button below to begin!",
         };
-        setChatHistory(prev => [...prev, userMessage]);
+        setChatHistory([welcomeMessage]);
+        setGameState('welcome');
+    }, []);
 
-        if (message.toLowerCase() === TERMINATION_PHRASE.toLowerCase()) {
-            setIsGameOver(true);
-            const gameOverMessage: ChatMessage = {
-                id: `ai-gameover-${Date.now()}`,
-                sender: MessageSender.AI,
-                text: "Mission control, I understand. It's been an honor exploring the cosmos with you. Come back any time for another voyage. Dr. Sagan signing off."
-            };
-            setChatHistory(prev => [...prev, gameOverMessage]);
-            return;
-        }
+    const fetchNextFact = useCallback(async () => {
+        if (isLoading || !difficultyLevel) return;
 
         setIsLoading(true);
         const loadingMessage: ChatMessage = {
@@ -44,63 +38,106 @@ const App: React.FC = () => {
         setChatHistory(prev => [...prev, loadingMessage]);
 
         try {
-            const factResponse = await getCosmicFact(factCount + 1, factsForQuiz);
-            
+            const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
             const newFactCount = factCount + 1;
             const updatedFactsForQuiz = [...factsForQuiz, factResponse.fact];
-
             const image = await generateCosmicImage(factResponse.imagePrompt);
 
             const factMessage: ChatMessage = {
                 id: `ai-fact-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: `**Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
+                text: `🚀 **Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
                 imageUrl: image
             };
             setChatHistory(prev => prev.filter(m => !m.isLoading).concat(factMessage));
-
+            
             setFactCount(newFactCount);
-
-            if (newFactCount % QUIZ_INTERVAL === 0) {
-                const quizLoadingMessage: ChatMessage = {
-                    id: `loading-quiz-${Date.now()}`,
-                    sender: MessageSender.AI,
-                    isLoading: true,
-                };
-                setChatHistory(prev => [...prev, quizLoadingMessage]);
-                
-                const quizQuestions: QuizQuestion[] = await generateCosmicQuiz(updatedFactsForQuiz);
-                const quizMessage: ChatMessage = {
-                    id: `ai-quiz-${Date.now()}`,
-                    sender: MessageSender.AI,
-                    quizData: { questions: quizQuestions }
-                };
-                setChatHistory(prev => prev.filter(m => !m.isLoading).concat(quizMessage));
-                setFactsForQuiz([]);
-            } else {
-                setFactsForQuiz(updatedFactsForQuiz);
-            }
+            setFactsForQuiz(updatedFactsForQuiz);
+            setGameState('playing');
 
         } catch (error) {
             console.error(error);
             const errorMessage: ChatMessage = {
                 id: `ai-error-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: "Apologies, we seem to have hit some cosmic interference. My connection to the deep space network was interrupted. Could you repeat that?",
+                text: "Whoa, a solar flare must be messing with our signal! My message got lost in some space static. Please try again.",
             };
             setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
+            setGameState('playing'); // Allow user to try again
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, isGameOver, factCount, factsForQuiz]);
+    }, [isLoading, difficultyLevel, factCount, factsForQuiz]);
+
+    const handleTakeQuiz = useCallback(async () => {
+        if (isLoading || !difficultyLevel) return;
+
+        setIsLoading(true);
+        setGameState('quiz');
+        const quizLoadingMessage: ChatMessage = {
+            id: `loading-quiz-${Date.now()}`,
+            sender: MessageSender.AI,
+            isLoading: true,
+        };
+        setChatHistory(prev => [...prev, quizLoadingMessage]);
+
+        try {
+            const quizQuestions: QuizQuestion[] = await generateCosmicQuiz(factsForQuiz, difficultyLevel);
+            const quizMessage: ChatMessage = {
+                id: `ai-quiz-${Date.now()}`,
+                sender: MessageSender.AI,
+                quizData: { questions: quizQuestions }
+            };
+            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(quizMessage));
+            setFactsForQuiz([]);
+        } catch (error) {
+            console.error(error);
+             const errorMessage: ChatMessage = {
+                id: `ai-error-${Date.now()}`,
+                sender: MessageSender.AI,
+                text: "Oh no! I couldn't beam down the quiz questions. A pesky asteroid must have blocked the signal. Let's just continue our journey for now.",
+            };
+            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
+            setGameState('quiz_done'); // Skip quiz on error
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isLoading, difficultyLevel, factsForQuiz]);
+    
+    const handleQuizComplete = useCallback(() => {
+        setGameState('quiz_done');
+    }, []);
+
+    const handleEndMission = useCallback(() => {
+        setGameState('game_over');
+        const gameOverMessage: ChatMessage = {
+            id: `ai-gameover-${Date.now()}`,
+            sender: MessageSender.AI,
+            text: "I hear you, mission control! Our space adventure is over for now. It was awesome exploring the stars with you! Come back soon for another trip through the cosmos. Dr. Sagan, over and out!"
+        };
+        setChatHistory(prev => [...prev, gameOverMessage]);
+    }, []);
+
+    if (!difficultyLevel) {
+        return <DifficultySelector onSelectDifficulty={handleSelectDifficulty} />;
+    }
 
     return (
         <div className="h-screen w-screen flex flex-col font-sans bg-gray-900">
             <header className="bg-gray-800 text-white p-4 text-center shadow-md border-b border-gray-700">
-                <h1 className="text-2xl font-bold tracking-wider">Cosmic Voyage with Dr. Aime Sagan</h1>
+                <h1 className="text-3xl font-bold tracking-wider">Cosmic Voyage with Dr. Aime Sagan</h1>
             </header>
-            <ChatWindow messages={chatHistory} />
-            <InputBar onSendMessage={handleUserInput} disabled={isLoading || isGameOver} />
+            <ChatWindow messages={chatHistory} onQuizComplete={handleQuizComplete} />
+            <GameControls
+                gameState={gameState}
+                factCount={factCount}
+                disabled={isLoading}
+                onStart={fetchNextFact}
+                onNextFact={fetchNextFact}
+                onTakeQuiz={handleTakeQuiz}
+                onContinue={fetchNextFact}
+                onEndMission={handleEndMission}
+            />
         </div>
     );
 };

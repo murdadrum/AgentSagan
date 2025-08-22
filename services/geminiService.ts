@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { QuizQuestion } from '../types';
+import type { QuizQuestion, DifficultyLevel } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
@@ -21,19 +20,43 @@ const factSchema = {
     type: Type.OBJECT,
     properties: {
         fact: { type: Type.STRING, description: "A single, interesting fact about the cosmos." },
-        explanation: { type: Type.STRING, description: "A detailed, engaging explanation of the fact." },
-        imagePrompt: { type: Type.STRING, description: "A concise, descriptive prompt for an AI image generator to create a technically accurate visual illustration (diagram, chart, or depiction) based on the fact." }
+        explanation: { type: Type.STRING, description: "A detailed, engaging explanation of the fact, tailored to the specified audience." },
+        imagePrompt: { type: Type.STRING, description: "A concise, descriptive prompt for an AI image generator to create a technically accurate but visually appealing illustration (diagram, chart, or depiction) based on the fact." }
     },
     required: ["fact", "explanation", "imagePrompt"],
 };
 
+const getDifficultyConfig = (difficulty: DifficultyLevel) => {
+    switch (difficulty) {
+        case 1:
+            return {
+                audience: "a child aged 6-10",
+                systemInstruction: "You are Dr. Aime Sagan, a super friendly and fun astrophysicist hosting a space game for kids aged 6-10. Your tone is extremely enthusiastic, simple, and exciting. Use easy-to-understand words, short sentences, and fun analogies. Avoid complex jargon. Make learning about space feel like an awesome adventure.",
+                explanationDetail: "using simple language and fun analogies suitable for a 6-10 year old.",
+            };
+        case 2:
+            return {
+                audience: "a teenager aged 11-18",
+                systemInstruction: "You are Dr. Aime Sagan, an engaging and cool astrophysicist hosting a space game for teenagers aged 11-18. Your tone is informative but also exciting and relatable. You can introduce more technical terms but should always explain them clearly. Assume a basic understanding of science but aim to expand on it.",
+                explanationDetail: "that is detailed and engaging for a teenager aged 11-18. Explain any technical terms you use.",
+            };
+        case 3:
+            return {
+                audience: "an adult (age 20+)",
+                systemInstruction: "You are Dr. Aime Sagan, a knowledgeable and enthusiastic astrophysicist hosting a space game for adults. Your tone is that of an expert speaking to a curious and intelligent peer. You can use precise, technical terminology, but should still prioritize clarity and engaging explanations. Your passion for the subject should be evident.",
+                explanationDetail: "that is in-depth, technically accurate, and detailed, suitable for an adult with a keen interest in astrophysics.",
+            };
+    }
+};
 
-export const getCosmicFact = async (factLevel: number, previousFacts: string[]): Promise<FactResponse> => {
+export const getCosmicFact = async (factLevel: number, previousFacts: string[], difficulty: DifficultyLevel): Promise<FactResponse> => {
+    const config = getDifficultyConfig(difficulty);
     try {
         const prompt = `
-            Your current fact level is ${factLevel}. The difficulty should scale with this number (1 is very common knowledge, 10 is advanced).
+            The user is at fact level ${factLevel} and has selected a difficulty appropriate for ${config.audience}.
+            The difficulty should scale with the fact level number, starting simple and getting progressively more complex within the chosen difficulty tier.
             Please generate a new, unique fact about the cosmos that is not in this list of previous facts: [${previousFacts.join(', ')}].
-            Provide an engaging and detailed explanation for the fact.
+            Provide an engaging explanation for the fact ${config.explanationDetail}.
             Then, based on the fact and explanation, create a concise, descriptive prompt for an AI image generator to create a technically accurate visual illustration.
         `;
 
@@ -41,7 +64,7 @@ export const getCosmicFact = async (factLevel: number, previousFacts: string[]):
             model: factGenerationModel,
             contents: prompt,
             config: {
-                systemInstruction: "You are a PhD Astrophysicist named Dr. Aime Sagan, hosting an educational and interactive game about the cosmos. Your tone is enthusiastic, knowledgeable, and engaging.",
+                systemInstruction: config.systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: factSchema,
             }
@@ -90,7 +113,7 @@ const quizSchema = {
             options: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "An array of 4 strings: one correct answer and three plausible distractors."
+                description: "An array of 4 strings: one correct answer and three plausible distractors. All options should be tailored to the target audience's comprehension level."
             },
             correctAnswer: { type: Type.STRING, description: "The correct answer, which must exactly match one of the items in the 'options' array." }
         },
@@ -98,10 +121,11 @@ const quizSchema = {
     }
 };
 
-export const generateCosmicQuiz = async (facts: string[]): Promise<QuizQuestion[]> => {
+export const generateCosmicQuiz = async (facts: string[], difficulty: DifficultyLevel): Promise<QuizQuestion[]> => {
+    const config = getDifficultyConfig(difficulty);
     try {
         const prompt = `
-            Based on the following five facts, create a multiple-choice quiz with one question for each fact. Each question should test understanding of the core concept in the fact. Each question must have four options: one correct answer and three plausible but incorrect distractors.
+            Based on the following five facts, create a multiple-choice quiz with one question for each fact. Each question should test understanding of the core concept in the fact. Each question must have four options: one correct answer and three plausible but incorrect distractors. Tailor the language and complexity for ${config.audience}.
 
             Facts:
             ${facts.map((fact, index) => `${index + 1}. ${fact}`).join('\n')}
@@ -111,7 +135,7 @@ export const generateCosmicQuiz = async (facts: string[]): Promise<QuizQuestion[
             model: factGenerationModel,
             contents: prompt,
             config: {
-                systemInstruction: "You are Dr. Aime Sagan, a PhD Astrophysicist creating a quiz for your space game.",
+                systemInstruction: config.systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: quizSchema,
             }

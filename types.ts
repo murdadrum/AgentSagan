@@ -1,9 +1,12 @@
-
 export enum MessageSender {
   USER = 'user',
   AI = 'ai',
   SYSTEM = 'system',
 }
+
+export type DifficultyLevel = 1 | 2 | 3;
+
+export type GameState = 'welcome' | 'playing' | 'quiz' | 'quiz_done' | 'game_over';
 
 export interface QuizQuestion {
   question: string;

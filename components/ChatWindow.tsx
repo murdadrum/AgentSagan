@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 import { MessageSender } from '../types';
 import type { ChatMessage } from '../types';
@@ -6,6 +5,7 @@ import { Quiz } from './Quiz';
 
 interface ChatWindowProps {
   messages: ChatMessage[];
+  onQuizComplete: () => void;
 }
 
 const UserIcon = () => (
@@ -34,7 +34,7 @@ const LoadingBubble: React.FC = () => (
 );
 
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ messages }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onQuizComplete }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,13 +59,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages }) => {
 
     const messageBody = (
         <div className={bubbleClass}>
-            {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
+            {msg.text && <p className="whitespace-pre-wrap text-lg">{msg.text}</p>}
             {msg.imageUrl && (
                 <div className="mt-4">
                     <img src={msg.imageUrl} alt="Cosmic illustration" className="rounded-lg shadow-lg" />
                 </div>
             )}
-            {msg.quizData && <Quiz quizData={msg.quizData} />}
+            {msg.quizData && <Quiz quizData={msg.quizData} onComplete={onQuizComplete} />}
         </div>
     );
     
