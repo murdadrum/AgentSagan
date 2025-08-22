@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChatWindow } from './components/ChatWindow';
 import { GameControls } from './components/GameControls';
 import { DifficultySelector } from './components/DifficultySelector';
@@ -7,6 +7,12 @@ import { QUIZ_INTERVAL } from './constants';
 import { MessageSender } from './types';
 import type { ChatMessage, QuizQuestion, DifficultyLevel, GameState } from './types';
 
+// Define a type for the preloaded content for better type safety
+type PreloadedContent = {
+    factResponse: Awaited<ReturnType<typeof getCosmicFact>>;
+    imageUrl: string;
+};
+
 const App: React.FC = () => {
     const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -14,6 +20,10 @@ const App: React.FC = () => {
     const [factCount, setFactCount] = useState<number>(0);
     const [factsForQuiz, setFactsForQuiz] = useState<string[]>([]);
     const [gameState, setGameState] = useState<GameState>('welcome');
+    
+    // New state for pre-loading
+    const [preloadedContent, setPreloadedContent] = useState<PreloadedContent | null>(null);
+    const [isPreloading, setIsPreloading] = useState<boolean>(false);
 
     const handleSelectDifficulty = useCallback((level: DifficultyLevel) => {
         setDifficultyLevel(level);
@@ -24,50 +34,93 @@ const App: React.FC = () => {
         };
         setChatHistory([welcomeMessage]);
         setGameState('welcome');
+        // The useEffect will now trigger the initial preload for Fact #1
     }, []);
 
-    const fetchNextFact = useCallback(async () => {
+    const advanceJourney = useCallback(async () => {
         if (isLoading || !difficultyLevel) return;
 
-        setIsLoading(true);
-        const loadingMessage: ChatMessage = {
-            id: `loading-${Date.now()}`,
-            sender: MessageSender.AI,
-            isLoading: true,
-        };
-        setChatHistory(prev => [...prev, loadingMessage]);
-
-        try {
-            const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
+        // If content is ready, display it immediately for a fast experience
+        if (preloadedContent) {
+            const { factResponse, imageUrl } = preloadedContent;
             const newFactCount = factCount + 1;
-            const updatedFactsForQuiz = [...factsForQuiz, factResponse.fact];
-            const image = await generateCosmicImage(factResponse.imagePrompt);
-
+            
             const factMessage: ChatMessage = {
                 id: `ai-fact-${Date.now()}`,
                 sender: MessageSender.AI,
                 text: `🚀 **Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
-                imageUrl: image
+                imageUrl: imageUrl
             };
-            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(factMessage));
-            
-            setFactCount(newFactCount);
-            setFactsForQuiz(updatedFactsForQuiz);
-            setGameState('playing');
 
-        } catch (error) {
-            console.error(error);
-            const errorMessage: ChatMessage = {
-                id: `ai-error-${Date.now()}`,
+            setChatHistory(prev => [...prev, factMessage]);
+            setFactCount(newFactCount);
+            setFactsForQuiz(prev => [...prev, factResponse.fact]);
+            setGameState('playing');
+            setPreloadedContent(null); // Consume the preloaded content
+        } else {
+            // Fallback: Content is not preloaded (still loading or failed).
+            // Show loading state to user and fetch on demand.
+            setIsLoading(true);
+            const loadingMessage: ChatMessage = {
+                id: `loading-${Date.now()}`,
                 sender: MessageSender.AI,
-                text: "Whoa, a solar flare must be messing with our signal! My message got lost in some space static. Please try again.",
+                isLoading: true,
             };
-            setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
-            setGameState('playing'); // Allow user to try again
-        } finally {
-            setIsLoading(false);
+            setChatHistory(prev => [...prev, loadingMessage]);
+
+            try {
+                const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
+                const newFactCount = factCount + 1;
+                const image = await generateCosmicImage(factResponse.imagePrompt);
+
+                const factMessage: ChatMessage = {
+                    id: `ai-fact-${Date.now()}`,
+                    sender: MessageSender.AI,
+                    text: `🚀 **Fact #${newFactCount}: ${factResponse.fact}**\n\n${factResponse.explanation}`,
+                    imageUrl: image
+                };
+                setChatHistory(prev => prev.filter(m => !m.isLoading).concat(factMessage));
+                
+                setFactCount(newFactCount);
+                setFactsForQuiz(prev => [...prev, factResponse.fact]);
+                setGameState('playing');
+            } catch (error) {
+                console.error(error);
+                const errorMessage: ChatMessage = {
+                    id: `ai-error-${Date.now()}`,
+                    sender: MessageSender.AI,
+                    text: "Whoa, a solar flare must be messing with our signal! My message got lost in some space static. Please try again.",
+                };
+                setChatHistory(prev => prev.filter(m => !m.isLoading).concat(errorMessage));
+                setGameState('playing');
+            } finally {
+                setIsLoading(false);
+            }
         }
-    }, [isLoading, difficultyLevel, factCount, factsForQuiz]);
+    }, [isLoading, difficultyLevel, factCount, factsForQuiz, preloadedContent]);
+
+    // Effect hook to handle all background pre-loading
+    useEffect(() => {
+        const canPreload = difficultyLevel && !isPreloading && !preloadedContent;
+        const shouldPreload = canPreload && (gameState === 'welcome' || gameState === 'playing' || gameState === 'quiz_done');
+
+        if (shouldPreload) {
+            const preload = async () => {
+                setIsPreloading(true);
+                try {
+                    const factResponse = await getCosmicFact(factCount + 1, factsForQuiz, difficultyLevel);
+                    const image = await generateCosmicImage(factResponse.imagePrompt);
+                    setPreloadedContent({ factResponse, imageUrl: image });
+                } catch (error) {
+                    console.error("Failed to preload next fact:", error);
+                    setPreloadedContent(null); // Ensure fallback is triggered on error
+                } finally {
+                    setIsPreloading(false);
+                }
+            };
+            preload();
+        }
+    }, [difficultyLevel, gameState, factCount, isPreloading, preloadedContent, factsForQuiz]);
 
     const handleTakeQuiz = useCallback(async () => {
         if (isLoading || !difficultyLevel) return;
@@ -123,8 +176,8 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col font-sans bg-gray-900">
-            <header className="bg-gray-800 text-white p-4 text-center shadow-md border-b border-gray-700">
+        <div className="h-screen w-screen flex flex-col font-sans bg-transparent">
+            <header className="bg-gray-800/75 backdrop-blur-sm text-white p-4 text-center shadow-md border-b border-gray-700/50">
                 <h1 className="text-3xl font-bold tracking-wider">Cosmic Voyage with Dr. Aime Sagan</h1>
             </header>
             <ChatWindow messages={chatHistory} onQuizComplete={handleQuizComplete} />
@@ -132,10 +185,10 @@ const App: React.FC = () => {
                 gameState={gameState}
                 factCount={factCount}
                 disabled={isLoading}
-                onStart={fetchNextFact}
-                onNextFact={fetchNextFact}
+                onStart={advanceJourney}
+                onNextFact={advanceJourney}
                 onTakeQuiz={handleTakeQuiz}
-                onContinue={fetchNextFact}
+                onContinue={advanceJourney}
                 onEndMission={handleEndMission}
             />
         </div>

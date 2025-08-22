@@ -44,7 +44,7 @@ export const GameControls: React.FC<GameControlsProps> = ({ gameState, factCount
     }
 
     return (
-        <div className="bg-gray-800 p-4 border-t border-gray-700">
+        <div className="bg-gray-800/75 backdrop-blur-sm p-4 border-t border-gray-700/50">
             <div className="flex items-center justify-center space-x-4 max-w-4xl mx-auto">
                 <div className="flex-grow flex justify-center">
                     {renderCentralButton()}

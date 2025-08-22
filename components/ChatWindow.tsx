@@ -79,7 +79,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onQuizComplete
   };
   
   return (
-    <div className="flex-grow p-6 overflow-y-auto bg-gray-900 text-white">
+    <div className="flex-grow p-6 overflow-y-auto bg-transparent text-white">
       <div className="max-w-4xl mx-auto space-y-6">
         {messages.map(msg => <div key={msg.id}>{renderMessageContent(msg)}</div>)}
         <div ref={endOfMessagesRef} />

@@ -19,8 +19,8 @@ const LevelButton: React.FC<{ level: DifficultyLevel, label: string, description
 
 export const DifficultySelector: React.FC<DifficultySelectorProps> = ({ onSelectDifficulty }) => {
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center font-sans bg-gray-900 text-white p-4">
-        <div className="max-w-2xl text-center">
+    <div className="h-screen w-screen flex flex-col items-center justify-center font-sans text-white p-4">
+        <div className="max-w-2xl text-center bg-black/50 backdrop-blur-md p-8 rounded-xl border border-gray-700">
             <h1 className="text-5xl font-bold tracking-wider mb-4">Welcome to your Cosmic Voyage!</h1>
             <p className="text-xl text-gray-300 mb-8">I'm Dr. Aime Sagan. Before we blast off, please select a difficulty level for our journey.</p>
             <div className="space-y-4">
