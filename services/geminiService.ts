@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { QuizQuestion, DifficultyLevel } from '../types';
+import type { QuizQuestion, DifficultyLevel, FactResponse } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set.");
@@ -9,19 +9,16 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const factGenerationModel = "gemini-2.5-flash";
-
-interface FactResponse {
-    fact: string;
-    explanation: string;
-}
+const imageGenerationModel = 'imagen-3.0-generate-002';
 
 const factSchema = {
     type: Type.OBJECT,
     properties: {
         fact: { type: Type.STRING, description: "A single, interesting fact about the cosmos." },
         explanation: { type: Type.STRING, description: "A detailed, engaging explanation of the fact, tailored to the specified audience." },
+        imagePrompt: { type: Type.STRING, description: "A rich, descriptive prompt for an image generation model to create a photorealistic, awe-inspiring image related to the fact. This prompt should be detailed and evoke a sense of wonder. For example: 'A swirling nebula of cosmic dust and gas, with newborn stars igniting within its vibrant clouds, in shades of deep purple and brilliant gold.'" }
     },
-    required: ["fact", "explanation"],
+    required: ["fact", "explanation", "imagePrompt"],
 };
 
 const getDifficultyConfig = (difficulty: DifficultyLevel) => {
@@ -57,6 +54,7 @@ export const getCosmicFact = async (factLevel: number, previousFacts: string[], 
             The difficulty should scale with the fact level number, starting simple and getting progressively more complex within the chosen difficulty tier.
             Please generate a new, unique fact about the cosmos that is not in this list of previous facts: [${previousFacts.join(', ')}].
             Provide an engaging explanation for the fact ${config.explanationDetail}.
+            Also, provide a detailed and creative prompt for an image generation model that visually represents the fact.
         `;
 
         const response = await ai.models.generateContent({
@@ -75,6 +73,28 @@ export const getCosmicFact = async (factLevel: number, previousFacts: string[], 
     } catch (error) {
         console.error("Error generating cosmic fact:", error);
         throw new Error("Failed to get a fact from the cosmos. Please try again.");
+    }
+};
+
+export const generateCosmicImage = async (prompt: string): Promise<string | null> => {
+    try {
+        const response = await ai.models.generateImages({
+            model: imageGenerationModel,
+            prompt: `A breathtaking, photorealistic image of: ${prompt}. Cinematic lighting, high detail, 8k resolution.`,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/jpeg',
+              aspectRatio: '16:9',
+            },
+        });
+
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            return response.generatedImages[0].image.imageBytes;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error generating cosmic image:", error);
+        return null; // Return null to indicate failure, allowing the app to proceed without an image.
     }
 };
 

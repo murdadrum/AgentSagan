@@ -24,12 +24,15 @@ export interface ChatMessage {
   text?: string;
   quizData?: QuizData;
   isLoading?: boolean;
+  imageUrl?: string;
 }
 
 // Types for pre-loaded level content
 export interface FactResponse {
     fact: string;
     explanation: string;
+    imagePrompt: string;
+    imageUrl?: string;
 }
 
 export interface FactBlock {

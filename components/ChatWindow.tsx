@@ -60,6 +60,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onQuizComplete
 
     const messageBody = (
         <div className={bubbleClass}>
+            {msg.imageUrl && (
+                <img 
+                    src={msg.imageUrl}
+                    alt="Cosmic visualization"
+                    className="rounded-lg mb-4 w-full h-auto object-cover"
+                    loading="lazy"
+                />
+            )}
             {msg.text && <p className="whitespace-pre-wrap text-lg">{msg.text}</p>}
             {msg.quizData && <Quiz quizData={msg.quizData} onComplete={onQuizComplete} />}
         </div>
